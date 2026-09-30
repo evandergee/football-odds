@@ -15,10 +15,10 @@ import argparse
 import math
 from fractions import Fraction
 
-# Typical NFL standard deviations, in points, of the final margin and of the total
-# around their projections. Both can be overridden on the command line.
-MARGIN_SD = 13.5
-TOTAL_SD = 10.0
+# NFL standard deviations, in points, of the final margin and of the total around
+# closing betting lines, 2023-2025 seasons. Both can be overridden on the command line.
+MARGIN_SD = 13.0
+TOTAL_SD = 13.0
 
 
 # ---------------------------------------------------------------- conversion
