@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Football Odds Calculator</title>
-<meta name="description" content="Turn expected goals into match probabilities and fair odds, and compare them with bookmaker odds.">
+<title>NFL Odds Calculator</title>
+<meta name="description" content="Turn projected NFL scores into moneyline, spread and total probabilities, and compare them with bookmaker odds.">
 <style>
   :root {
     --bg: #faf9f5; --card: #f0eee6; --text: #1f1e1d; --muted: #6b6a66;
@@ -23,124 +23,183 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  main { max-width: 800px; margin: 0 auto; padding: 32px 16px 48px; }
   h1 { font-size: 26px; font-weight: 600; margin: 0 0 4px; }
-  h2 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 10px; }
   .lede, .small { color: var(--muted); }
-  .lede { margin: 0 0 24px; }
+  .lede { margin: 0 0 20px; }
   .small { font-size: 13px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  fieldset { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 14px; margin: 0 0 12px; }
+  legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   label span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
   input { width: 100%; height: 38px; padding: 0 10px; font: inherit; color: var(--text);
     background: var(--input); border: 1px solid var(--border); border-radius: 8px; }
   input:focus { outline: 2px solid #3b7dd8; outline-offset: 1px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 4px 0 0; font-size: 15px; }
+  .summary b { font-weight: 600; }
+  .market { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .card { background: var(--card); border-radius: 10px; padding: 14px 16px; }
   .big { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .edge { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .edge { margin-top: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .edge.pos { color: var(--good); }
-  .err { color: var(--bad); font-size: 14px; min-height: 22px; margin: 0 0 8px; }
-  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 32px; }
-  .row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border);
-    font-variant-numeric: tabular-nums; }
+  .err { color: var(--bad); font-size: 14px; min-height: 22px; margin: 0; }
   footer { margin-top: 40px; font-size: 13px; color: var(--muted); }
-  footer a { color: inherit; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Football odds calculator</h1>
-  <p class="lede">Turn expected goals into match probabilities and fair odds using a Poisson model, then compare them with a bookmaker's prices.</p>
+  <h1>NFL odds calculator</h1>
+  <p class="lede">Turn projected scores into moneyline, spread and total probabilities, then compare them with a bookmaker's prices. Odds can be American (-110, +150) or decimal (1.91).</p>
 
-  <div class="grid">
-    <label><span>Home expected goals</span><input id="hxg" type="number" step="0.1" min="0" max="6" value="1.6"></label>
-    <label><span>Away expected goals</span><input id="axg" type="number" step="0.1" min="0" max="6" value="1.1"></label>
-    <label><span>Goals line</span><input id="line" type="number" step="1" min="0.5" max="6.5" value="2.5"></label>
-  </div>
-  <div class="grid">
-    <label><span>Bookmaker home odds</span><input id="oh" type="text" value="2.10" placeholder="2.10, 11/10 or +110"></label>
-    <label><span>Bookmaker draw odds</span><input id="od" type="text" value="3.40" placeholder="3.40"></label>
-    <label><span>Bookmaker away odds</span><input id="oa" type="text" value="3.60" placeholder="3.60"></label>
-  </div>
+  <fieldset>
+    <legend>Projection</legend>
+    <div class="grid">
+      <label><span>Home team</span><input id="hname" type="text" value="Home" maxlength="30"></label>
+      <label><span>Home projected points</span><input id="hpts" type="number" step="0.5" min="0" max="70" value="24.5"></label>
+      <label><span>Away team</span><input id="aname" type="text" value="Away" maxlength="30"></label>
+      <label><span>Away projected points</span><input id="apts" type="number" step="0.5" min="0" max="70" value="21.5"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Bookmaker lines (leave odds blank to skip the comparison)</legend>
+    <div class="grid">
+      <label><span>Home moneyline</span><input id="mlh" type="text" value="-165"></label>
+      <label><span>Away moneyline</span><input id="mla" type="text" value="+140"></label>
+      <label><span>Home spread</span><input id="spread" type="number" step="0.5" value="-3"></label>
+      <label><span>Home spread odds</span><input id="sph" type="text" value="-110"></label>
+      <label><span>Away spread odds</span><input id="spa" type="text" value="-110"></label>
+      <label><span>Total points</span><input id="total" type="number" step="0.5" min="0" value="44.5"></label>
+      <label><span>Over odds</span><input id="ovr" type="text" value="-110"></label>
+      <label><span>Under odds</span><input id="und" type="text" value="-110"></label>
+    </div>
+  </fieldset>
   <p class="err" id="err" role="alert"></p>
 
-  <div class="grid" id="cards"></div>
-  <p class="small" id="margin"></p>
+  <div class="summary" id="summary"></div>
 
-  <div class="cols">
-    <section><h2>Other markets</h2><div id="markets"></div></section>
-    <section><h2>Most likely scores</h2><div id="scores"></div></section>
-  </div>
+  <h2>Moneyline</h2>
+  <div class="market" id="ml"></div>
+  <h2>Spread</h2>
+  <div class="market" id="sp"></div>
+  <h2>Total</h2>
+  <div class="market" id="tot"></div>
+  <p class="small" id="vig"></p>
 
   <footer>
-    For learning and analysis only. This is not betting advice, and the model is a simplification.
-    Bookmaker margins mean most bettors lose money over time. If you bet, do it legally and only with money you can afford to lose.
+    The model treats the final margin and total as bell curves around your projections (standard deviations of 13.5 and 10 points), and settles games tied after regulation with an overtime field goal. It does not model key numbers like 3 and 7 exactly.
+    For learning and analysis only. This is not betting advice. Bookmaker vig means most bettors lose money over time. If you bet, do it legally and only with money you can afford to lose.
   </footer>
 </main>
 
 <script>
+const MARGIN_SD = 13.5, TOTAL_SD = 10;
 const $ = id => document.getElementById(id);
 
-// Parse decimal (2.5), fractional (6/4) or American (+150 / -200) odds.
+// Parse American (-110, +150, 150), decimal (1.91) or fractional (10/11) odds.
 function toDecimal(s) {
   s = String(s).trim();
   if (!s) return null;
   let d;
   if (s.includes('/')) { const [n, m] = s.split('/').map(Number); d = 1 + n / m; }
-  else if (/^[+-]/.test(s)) { const a = Number(s); d = a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a); }
-  else d = Number(s);
+  else {
+    const v = Number(s);
+    if (/^[+-]/.test(s) || Math.abs(v) >= 100) {
+      if (Math.abs(v) < 100) return NaN;
+      d = v > 0 ? 1 + v / 100 : 1 + 100 / Math.abs(v);
+    } else d = v;
+  }
   return isFinite(d) && d > 1 ? d : NaN;
 }
 
-function poisson(k, lam) {
-  let f = 1;
-  for (let i = 2; i <= k; i++) f *= i;
-  return Math.exp(-lam) * Math.pow(lam, k) / f;
+function toAmerican(d) {
+  if (d >= 2 || Math.round(100 / (d - 1)) === 100) return '+' + Math.round((d - 1) * 100);
+  return '-' + Math.round(100 / (d - 1));
+}
+
+function erf(x) {
+  // Abramowitz and Stegun 7.1.26, accurate to about 1e-7.
+  const s = Math.sign(x); x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return s * y;
+}
+const cdf = (x, mean, sd) => 0.5 * (1 + erf((x - mean) / (sd * Math.SQRT2)));
+
+function discreteNormal(mean, sd, lo, hi) {
+  const dist = new Map();
+  for (let k = lo; k <= hi; k++) dist.set(k, cdf(k + 0.5, mean, sd) - cdf(k - 0.5, mean, sd));
+  return dist;
+}
+
+function marginDist(h, a) {
+  const dist = discreteNormal(h - a, MARGIN_SD, -100, 100);
+  const tie = dist.get(0);
+  dist.delete(0);
+  dist.set(3, dist.get(3) + tie / 2);
+  dist.set(-3, dist.get(-3) + tie / 2);
+  return dist;
+}
+
+// [P(result > line), P(result == line), P(result < line)]
+function lineProbs(dist, line) {
+  let above = 0;
+  for (const [k, p] of dist) if (k > line) above += p;
+  const push = Number.isInteger(line) ? (dist.get(line) || 0) : 0;
+  return [above, push, 1 - above - push];
 }
 
 const pct = p => (p * 100).toFixed(1) + '%';
-const fair = p => p > 0 ? (1 / p).toFixed(2) : '—';
-const row = (name, p) => `<div class="row"><span>${name}</span><span>${pct(p)} <span class="small">@ ${fair(p)}</span></span></div>`;
+const fmtLine = x => x === 0 ? 'PK' : (x > 0 ? '+' : '') + x;
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function card(name, win, push, loss, book) {
+  const fair = toAmerican((win + loss) / win);
+  let extra = '';
+  if (book) {
+    const edge = win * (book - 1) - loss;
+    const b = book - 1, kelly = Math.max(0, (b * win - loss) / (b * (win + loss)));
+    extra = `<div class="edge${edge > 0 ? ' pos' : ''}">Book ${toAmerican(book)} · edge ${edge > 0 ? '+' : ''}${(edge * 100).toFixed(1)}%` +
+      (edge > 0 ? ` · Kelly ${(kelly * 100).toFixed(1)}%` : '') + '</div>';
+  }
+  return `<div class="card"><div class="small">${esc(name)}</div><div class="big">${pct(win)}</div>` +
+    `<div class="small">Fair odds ${fair}${push ? ` · push ${pct(push)}` : ''}</div>${extra}</div>`;
+}
+
+function vigText(label, a, b) {
+  if (!a || !b) return '';
+  return `${label} ${((1 / a + 1 / b - 1) * 100).toFixed(1)}%`;
+}
 
 function calc() {
-  const h = parseFloat($('hxg').value), a = parseFloat($('axg').value), line = parseFloat($('line').value);
-  if (!(h >= 0 && h <= 6) || !(a >= 0 && a <= 6)) { $('err').textContent = 'Enter expected goals between 0 and 6.'; return; }
-  if (!(line > 0)) { $('err').textContent = 'Enter a goals line above 0, like 2.5.'; return; }
-  const odds = ['oh', 'od', 'oa'].map(id => toDecimal($(id).value));
-  if (odds.some(Number.isNaN)) { $('err').textContent = 'Odds must be decimal (2.10), fractional (11/10) or American (+110).'; return; }
+  const h = parseFloat($('hpts').value), a = parseFloat($('apts').value);
+  const spread = parseFloat($('spread').value), total = parseFloat($('total').value);
+  const home = $('hname').value.trim() || 'Home', away = $('aname').value.trim() || 'Away';
+  if (!(h >= 0 && h <= 70) || !(a >= 0 && a <= 70)) { $('err').textContent = 'Enter projected points between 0 and 70.'; return; }
+  if (!isFinite(spread) || Math.abs(spread) > 40) { $('err').textContent = 'Enter a spread like -3.5 or +7.'; return; }
+  if (!(total > 0)) { $('err').textContent = 'Enter a total points line above 0, like 44.5.'; return; }
+  const ids = ['mlh', 'mla', 'sph', 'spa', 'ovr', 'und'];
+  const odds = Object.fromEntries(ids.map(id => [id, toDecimal($(id).value)]));
+  if (ids.some(id => Number.isNaN(odds[id]))) { $('err').textContent = 'Odds must be American (-110, +150) or decimal (1.91).'; return; }
   $('err').textContent = '';
 
-  const P = { home: 0, draw: 0, away: 0, over: 0, btts: 0 }, scores = [];
-  for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) {
-    const p = poisson(i, h) * poisson(j, a);
-    if (i > j) P.home += p; else if (i === j) P.draw += p; else P.away += p;
-    if (i + j > line) P.over += p;
-    if (i > 0 && j > 0) P.btts += p;
-    scores.push([`${i}-${j}`, p]);
-  }
-  const total = P.home + P.draw + P.away;
+  const margin = marginDist(h, a), totals = discreteNormal(h + a, TOTAL_SD, 0, 150);
+  const fairSpread = -(h - a);
+  $('summary').innerHTML = `<span>Fair spread <b>${esc(home)} ${fmtLine(fairSpread)}</b></span><span>Fair total <b>${h + a}</b></span>`;
 
-  $('cards').innerHTML = [['Home win', 'home'], ['Draw', 'draw'], ['Away win', 'away']].map(([name, key], i) => {
-    const p = P[key], d = odds[i];
-    let extra = '';
-    if (d) {
-      const edge = p * d - 1, kelly = Math.max(0, (p * (d - 1) - (1 - p)) / (d - 1));
-      extra = `<div class="edge${edge > 0 ? ' pos' : ''}">Bookmaker ${d.toFixed(2)} · edge ${edge > 0 ? '+' : ''}${(edge * 100).toFixed(1)}%` +
-        (edge > 0 ? ` · Kelly ${(kelly * 100).toFixed(1)}%` : '') + '</div>';
-    }
-    return `<div class="card"><div class="small">${name}</div><div class="big">${pct(p)}</div><div class="small">Fair odds ${fair(p)}</div>${extra}</div>`;
-  }).join('');
+  const [hw, , aw] = lineProbs(margin, 0);
+  $('ml').innerHTML = card(`${home} moneyline`, hw, 0, aw, odds.mlh) + card(`${away} moneyline`, aw, 0, hw, odds.mla);
 
-  if (odds.every(Boolean)) {
-    const book = odds.reduce((s, d) => s + 1 / d, 0);
-    $('margin').textContent = `Bookmaker margin ${((book - 1) * 100).toFixed(2)}%. Fair odds with it removed: ` +
-      odds.map(d => (book * d).toFixed(2)).join(' / ');
-  } else {
-    $('margin').textContent = 'Add all three bookmaker odds to see their margin.';
-  }
+  const [cover, sPush, noCover] = lineProbs(margin, -spread);
+  $('sp').innerHTML = card(`${home} ${fmtLine(spread)}`, cover, sPush, noCover, odds.sph) +
+    card(`${away} ${fmtLine(-spread)}`, noCover, sPush, cover, odds.spa);
 
-  $('markets').innerHTML = row(`Over ${line}`, P.over) + row(`Under ${line}`, total - P.over) +
-    row('Both teams score', P.btts) + row('Not both score', total - P.btts);
-  $('scores').innerHTML = scores.sort((x, y) => y[1] - x[1]).slice(0, 5).map(([s, p]) => row(s, p)).join('');
+  const [over, tPush, under] = lineProbs(totals, total);
+  $('tot').innerHTML = card(`Over ${total}`, over, tPush, under, odds.ovr) + card(`Under ${total}`, under, tPush, over, odds.und);
+
+  const vig = [vigText('moneyline', odds.mlh, odds.mla), vigText('spread', odds.sph, odds.spa), vigText('total', odds.ovr, odds.und)].filter(Boolean);
+  $('vig').textContent = vig.length ? 'Bookmaker vig: ' + vig.join(' · ') : '';
 }
 
 document.querySelectorAll('input').forEach(el => el.addEventListener('input', calc));
