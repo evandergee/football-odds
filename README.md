@@ -7,7 +7,7 @@ A small toolkit for NFL betting maths. It converts between odds formats, measure
 There are two versions:
 
 - **`index.html`**: the calculator as a web page, which is what the link above shows. It builds team ratings from this season's results and lists this week's games with sportsbook lines.
-- **`football_odds.py`**: a command-line script where you supply the projected points yourself. It needs Python 3.9+ and nothing else.
+- **`football_odds.py`**: the same calculator as a command-line script, with the same team ratings. It needs Python 3.10+ and nothing else.
 
 ## Using the web page
 
@@ -16,6 +16,12 @@ There are two versions:
 3. **Optional:** type in the odds from your sportsbook. For this week's games, typical odds are already filled in.
 
 Fields marked with a red asterisk need a value, and empty ones are highlighted.
+
+When you enter sportsbook odds, each bet is colour-coded by its edge:
+
+- **Green, good price:** an edge of 3% to 10%.
+- **Yellow, caution:** an edge under 3%, which is too thin to trust given the model's error, or over 10%, which usually means the model is missing news like an injury.
+- **Red, bad price:** a negative edge. The model rates the bet below the sportsbook's price.
 
 ### Team ratings
 
@@ -26,6 +32,29 @@ Results, upcoming games and sportsbook lines come from [nflverse](https://github
 In a backtest over the 2024 and 2025 seasons (448 games from week 4 on), the ratings missed actual margins by 10.2 points on average, against 9.6 for the sportsbooks' closing spreads. The sportsbooks are more accurate, so a big "edge" usually means the model is missing news.
 
 ## Command-line usage
+
+See every team's offense and defense rating:
+
+```bash
+python3 football_odds.py teams
+```
+
+List this week's games, with the model's spread and total next to the sportsbook's:
+
+```bash
+python3 football_odds.py week
+```
+
+Get the full breakdown for one game, away team first. Teams can be abbreviations (`BUF`), nicknames (`Bills`) or cities (`Buffalo`). For this week's games, the sportsbook lines load automatically:
+
+```bash
+python3 football_odds.py game PIT CLE
+python3 football_odds.py game Bills Chiefs --ml -165 +140
+```
+
+Each bet with sportsbook odds gets the same good / caution / bad rating as the web page, coloured green, yellow or red in the terminal. Add `--home-pts` or `--away-pts` to override the ratings, `--neutral` for a neutral-site game, or `--no-color` for plain output.
+
+The `teams`, `week` and `game` commands download the latest results from nflverse each time they run. To work offline, download [games.csv](https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv) and add `--data games.csv`.
 
 Convert odds between American, decimal and fractional formats:
 
@@ -41,7 +70,7 @@ python3 football_odds.py vig -110 -110
 python3 football_odds.py vig -165 +140
 ```
 
-Predict a game from each team's projected points (home first, then away):
+Predict a game from projected points you supply yourself (home first, then away):
 
 ```bash
 python3 football_odds.py predict 24.5 21.5
