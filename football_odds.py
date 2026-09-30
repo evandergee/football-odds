@@ -10,11 +10,14 @@ Standard library only. Examples:
     python3 football_odds.py game BUF KC
     python3 football_odds.py game bills chiefs --ml +140 -165
     python3 football_odds.py predict 24.5 21.5 --spread -3 --total 44.5
+    python3 football_odds.py props mahomes
+    python3 football_odds.py props "josh allen" pass_yds 249.5 --odds -115 -105
 """
 
 import argparse
 import csv
 import io
+import json
 import math
 import os
 import ssl
@@ -27,6 +30,7 @@ from fractions import Fraction
 # closing betting lines, 2023-2025 seasons. Both can be overridden on the command line.
 MARGIN_SD = 13.0
 TOTAL_SD = 13.0
+TEAM_SD = 9.0        # one team's points around its projection
 
 # Team rating settings, chosen by backtesting the 2024 and 2025 seasons.
 DATA_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
@@ -162,6 +166,65 @@ def line_probabilities(dist: dict[int, float], line: float) -> tuple[float, floa
     return above, push, 1 - above - push
 
 
+# ---------------------------------------------------------------- prop model
+
+def negbin_pmf(k: int, mean: float, dispersion: float) -> float:
+    """P(X = k) for a count with the given mean and variance/mean ratio.
+    A ratio of 1 or less is treated as Poisson."""
+    if mean <= 0:
+        return 1.0 if k == 0 else 0.0
+    if dispersion <= 1.0001:
+        return math.exp(-mean + k * math.log(mean) - math.lgamma(k + 1))
+    r = mean / (dispersion - 1)
+    p = r / (r + mean)
+    return math.exp(math.lgamma(k + r) - math.lgamma(r) - math.lgamma(k + 1) + r * math.log(p) + k * math.log(1 - p))
+
+
+def prop_probabilities(kind: str, mean: float, spread: float | None, line: float) -> tuple[float, float, float]:
+    """(P(over), P(push), P(under)) for a player prop.
+
+    kind "yards" uses a lognormal curve with coefficient of variation `spread`,
+    "count" a negative binomial with variance/mean `spread`, and "td" a Poisson.
+    Results are whole numbers, so only a whole-number line can push.
+    """
+    whole = line == int(line)
+    if kind == "yards":
+        if mean <= 0:
+            return 0.0, 0.0, 1.0
+        s2 = math.log(1 + spread ** 2)
+        mu, sd = math.log(mean) - s2 / 2, math.sqrt(s2)
+
+        def above(x):   # P(result > x) on the continuous curve
+            return 1.0 if x <= 0 else 1 - normal_cdf(math.log(x), mu, sd)
+        over = above(math.floor(line) + 0.5)
+        push = above(line - 0.5) - over if whole else 0.0
+        return over, push, 1 - over - push
+    dispersion = 1.0 if kind == "td" else spread
+    below = sum(negbin_pmf(k, mean, dispersion) for k in range(0, math.floor(line) + (0 if whole else 1)))
+    push = negbin_pmf(int(line), mean, dispersion) if whole else 0.0
+    return 1 - below - push, push, below
+
+
+def fair_prop_line(kind: str, mean: float, spread: float | None) -> float:
+    """The half-point line closest to a 50/50 split."""
+    if kind == "yards":
+        s2 = math.log(1 + spread ** 2)
+        return math.floor(math.exp(math.log(max(mean, 0.01)) - s2 / 2)) + 0.5
+    best, gap = 0.5, 1.0
+    for n in range(400):
+        g = abs(prop_probabilities(kind, mean, spread, n + 0.5)[0] - 0.5)
+        if g >= gap:
+            break
+        best, gap = n + 0.5, g
+    return best
+
+
+def kelly_text(win: float, loss: float, decimal: float, rating: str) -> str:
+    """Kelly stake, shown only for good-price bets: for thin or suspiciously big
+    edges it can suggest reckless stakes, especially on heavy favourites."""
+    return f"{kelly_fraction(win, loss, decimal):.1%}" if rating == "good" else "-"
+
+
 def kelly_fraction(win: float, loss: float, decimal: float) -> float:
     """Kelly stake as a fraction of bankroll, allowing for pushes; 0 with no edge."""
     b = decimal - 1
@@ -256,6 +319,171 @@ class Ratings:
         return text + f" plus {self.season - 1} results at {PRIOR_WEIGHT:.0%} weight."
 
 
+# -------------------------------------------------------------- player props
+
+PLAYERS_URL = "https://evandergee.github.io/football-odds/data/players.json"
+
+# Props in the order each position is usually bet, and the minimum average a
+# player needs for a prop to be shown (a receiver's rushing yards usually aren't).
+PROP_ORDER = {
+    "QB": ["pass_yds", "pass_td", "pass_cmp", "pass_att", "pass_int", "rush_yds", "rush_att", "anytime_td"],
+    "RB": ["rush_yds", "rush_att", "rush_rec_yds", "rec_yds", "rec", "anytime_td"],
+    "WR": ["rec_yds", "rec", "rush_rec_yds", "rush_yds", "anytime_td"],
+    "TE": ["rec_yds", "rec", "rush_rec_yds", "anytime_td"],
+}
+MIN_AVERAGE = {"rush_yds": 5, "rush_att": 1, "rec_yds": 5, "rec": 0.5}
+PROP_ALIASES = {
+    "passing-yards": "pass_yds", "pass-yards": "pass_yds", "passing-tds": "pass_td", "pass-tds": "pass_td",
+    "completions": "pass_cmp", "attempts": "pass_att", "pass-attempts": "pass_att", "interceptions": "pass_int",
+    "ints": "pass_int", "rushing-yards": "rush_yds", "rush-yards": "rush_yds", "carries": "rush_att",
+    "rush-attempts": "rush_att", "receiving-yards": "rec_yds", "rec-yards": "rec_yds", "receptions": "rec",
+    "catches": "rec", "rush-rec-yards": "rush_rec_yds", "scrimmage-yards": "rush_rec_yds", "td": "anytime_td",
+    "anytime-td": "anytime_td", "touchdown": "anytime_td",
+}
+
+
+def load_players(path: str | None) -> dict:
+    """Player data: a file given with --players, else the published copy (updated
+    several times a day), else the copy in this folder."""
+    if path:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    try:
+        return json.loads(fetch_text(PLAYERS_URL))
+    except SystemExit:
+        local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "players.json")
+        if not os.path.exists(local):
+            raise
+        print(Colour.wrap("Couldn't download the latest player data, so using the local copy.", "caution"))
+        with open(local, encoding="utf-8") as f:
+            return json.load(f)
+
+
+def find_player(players: list[dict], text: str) -> dict:
+    t = text.strip().lower()
+    exact = [p for p in players if p["name"].lower() == t]
+    matches = exact or [p for p in players if t in p["name"].lower()]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise SystemExit(f"No player matching '{text}'. Try part of the name, like 'mahomes'.")
+    listing = "\n".join(f"  {p['name']} ({p['pos']}, {p['team']})" for p in matches[:15])
+    raise SystemExit(f"More than one player matches '{text}':\n{listing}\nUse more of the name.")
+
+
+def props_for(p: dict) -> list[str]:
+    return [s for s in PROP_ORDER[p["pos"]] if s in p["avg"] and p["avg"][s] >= MIN_AVERAGE.get(s, 0)]
+
+
+def project_prop(p: dict, stat: str, pdata: dict, ratings: "Ratings", game: dict | None) -> tuple[float, str]:
+    """(projected mean, explanation). Passing props are adjusted for the opponent's
+    pass defense; touchdown props for the team's projected points."""
+    base = p["avg"][stat]
+    if not game:
+        return base, ""
+    home, away = game["home_team"], game["away_team"]
+    opp = away if p["team"] == home else home
+    if pdata["stats"][stat]["kind"] == "td":
+        ppg = pdata["team_ppg"].get(p["team"])
+        if not ppg:
+            return base, ""
+        hp, ap = ratings.project(home, away, game["location"] == "Neutral")
+        proj = hp if p["team"] == home else ap
+        return base * proj / ppg, (f"{nickname(p['team'])} projected {proj:.1f} points vs their {ppg:.1f} average, "
+                                   f"so touchdown chances are scaled by {proj / ppg - 1:+.0%}.")
+    f = pdata["defense"].get(opp, {}).get(stat, {}).get(p["pos"])
+    if not f:
+        return base, ""
+    return base * f, f"{TEAMS.get(opp, opp)} allow {f - 1:+.0%} {pdata['stats'][stat]['label'].lower()} vs an average defense."
+
+
+def player_warnings(p: dict, pdata: dict) -> list[tuple[str, str]]:
+    injury = f" ({p['injury'].lower()})" if p.get("injury") else ""
+    w = []
+    if p["status"] == "IR":
+        w.append(("bad", f"{p['name']} is on injured reserve and won't play."))
+    elif p["status"] == "Out":
+        w.append(("bad", f"{p['name']} is listed as Out{injury} and won't play."))
+    elif p["status"] == "Doubtful":
+        w.append(("bad", f"{p['name']} is listed as Doubtful{injury} and probably won't play."))
+    elif p["status"] == "Questionable":
+        w.append(("caution", f"{p['name']} is listed as Questionable{injury}."))
+    elif p["status"]:
+        w.append(("caution", f"{p['name']}: {p['status'].lower()} this week{injury}. Game status usually comes out Friday."))
+    if p["team"] not in pdata["injury_teams"]:
+        w.append(("dim", f"The {nickname(p['team'])} haven't posted this week's injury report yet (Wednesday to Friday)."))
+    if p["games_this_season"] < 2:
+        w.append(("caution", f"{p['name']} has {p['games_this_season']} game(s) this season, so the projection leans on older games."))
+    return w
+
+
+def cmd_props(args):
+    pdata = load_players(args.players)
+    p = find_player(pdata["players"], args.player)
+    r = Ratings(load_games(args.data))
+    game = next((g for g in r.upcoming if p["team"] in (g["home_team"], g["away_team"])), None)
+    opp = (game["away_team"] if game["home_team"] == p["team"] else game["home_team"]) if game else None
+
+    print(f"{p['name']}, {p['pos']}, {TEAMS.get(p['team'], p['team'])}"
+          + (f" vs {TEAMS.get(opp, opp)} ({game['weekday']} {game['gameday']})" if game else " (no game found this week)"))
+    print(f"Stats through week {pdata['stats_through_week']} of {pdata['season']}; injury report for week "
+          f"{pdata['injury_week']}; updated {pdata['updated']}.")
+    for kind, text in player_warnings(p, pdata):
+        print(Colour.wrap(text, kind))
+    recent = ", ".join(f"wk {g['week']} {g['opp']}" for g in p["recent"])
+    print(f"Last {len(p['recent'])} games: {recent}\n")
+
+    if not args.prop:
+        print(f"{'Prop':<18}{'Projection':>11}{'Fair line':>11}{'Over at fair':>14}{'Last 5':>24}")
+        for s in props_for(p):
+            info = pdata["stats"][s]
+            mean, _ = project_prop(p, s, pdata, r, game)
+            spread = pdata["spread"].get(s, {}).get(p["pos"])
+            last5 = " ".join(f"{g[s]:g}" for g in p["recent"])
+            if s == "anytime_td":
+                yes = prop_probabilities("td", mean, None, 0.5)[0]
+                print(f"{info['label']:<18}{mean:>11.2f}{'-':>11}{f'{yes:.1%} {fair_american(yes)}':>14}{last5:>24}")
+                continue
+            line = fair_prop_line(info["kind"], mean, spread)
+            over, _, under = prop_probabilities(info["kind"], mean, spread, line)
+            print(f"{info['label']:<18}{mean:>11.1f}{line:>11g}{over:>14.1%}{last5:>24}")
+        print("\nFor one prop against a sportsbook's line, run for example:\n"
+              f"  python3 football_odds.py props \"{p['name']}\" {props_for(p)[0]} LINE --odds -115 -105")
+        return
+
+    stat = PROP_ALIASES.get(args.prop.lower(), args.prop.lower())
+    if stat not in p["avg"]:
+        raise SystemExit(f"'{args.prop}' isn't a prop for {p['name']}. Options: {', '.join(props_for(p))}")
+    info = pdata["stats"][stat]
+    spread = pdata["spread"].get(stat, {}).get(p["pos"])
+    mean, why = project_prop(p, stat, pdata, r, game)
+    is_td = stat == "anytime_td"
+    line = 0.5 if is_td else args.line
+    if line is None:
+        line = fair_prop_line(info["kind"], mean, spread)
+        print(f"No line given, so using the model's fair line of {line:g}.")
+    over, push, under = prop_probabilities(info["kind"], mean, spread, line)
+    print(f"Projected {'touchdowns' if is_td else info['label'].lower()}: {mean:.2f}. Weighted average {p['avg'][stat]:.2f} over the last "
+          f"{p['games']} games. {why}".rstrip())
+    print(f"Last {len(p['recent'])} games: " + ", ".join(f"{g[stat]:g}" for g in p["recent"]) + "\n")
+
+    names = ("Scores a TD", "No TD") if is_td else (f"Over {line:g}", f"Under {line:g}")
+    header = f"{'Bet':<16}{'Win':>8}{'Push':>7}{'Fair':>7}"
+    if args.odds:
+        header += f"{'Book':>7}{'Edge':>9}{'Kelly':>8}  Rating"
+    print(header)
+    for i, (name, win, loss) in enumerate(((names[0], over, under), (names[1], under, over))):
+        row = f"{name:<16}{win:>8.1%}{(f'{push:.1%}' if push else '-'):>7}{fair_american(win / (win + loss)):>7}"
+        if args.odds:
+            d = to_decimal(args.odds[i])
+            edge = win * (d - 1) - loss
+            rating = edge_rating(edge)
+            row = Colour.wrap(row + f"{to_american(d):>7}{edge:>+9.1%}{kelly_text(win, loss, d, rating):>8}  {rating}", rating)
+        print(row)
+    print(Colour.wrap("\nPlayer props are hard to predict: in testing this model beat a plain season average by "
+                      "only 1-3%, so treat big edges with suspicion and check the news.", "dim"))
+
+
 # ----------------------------------------------------------------------- CLI
 
 def half_point(x: float) -> float:
@@ -272,9 +500,10 @@ def signed(value: str) -> str:
 
 def print_prediction(home: str, away: str, home_pts: float, away_pts: float, spread: float | None,
                      total_line: float | None, ml=None, spread_odds=None, total_odds=None,
-                     margin_sd: float = MARGIN_SD, total_sd: float = TOTAL_SD):
-    """Print moneyline, spread and total probabilities, plus edges against any bookmaker
-    odds given. ml and spread_odds are (home, away) pairs; total_odds is (over, under)."""
+                     margin_sd: float = MARGIN_SD, total_sd: float = TOTAL_SD, alt: bool = False):
+    """Print moneyline, spread, total and team total probabilities, plus edges against
+    any bookmaker odds given, and alternate lines when alt is set. ml and spread_odds
+    are (home, away) pairs; total_odds is (over, under)."""
     margin = margin_distribution(home_pts, away_pts, margin_sd)
     total = total_distribution(home_pts, away_pts, total_sd)
     proj_margin = home_pts - away_pts
@@ -313,9 +542,31 @@ def print_prediction(home: str, away: str, home_pts: float, away_pts: float, spr
             d = to_decimal(book[idx])
             edge = win * (d - 1) - loss
             rating = edge_rating(edge)
-            line += f"{to_american(d):>7}{edge:>+9.1%}{kelly_fraction(win, loss, d):>8.1%}  {rating}"
+            line += f"{to_american(d):>7}{edge:>+9.1%}{kelly_text(win, loss, d, rating):>8}  {rating}"
             line = Colour.wrap(line, rating)
         print(line)
+
+    print(f"\n{'Team total (fair line)':<22}{'Over':>8}{'Push':>7}{'Fair':>7}")
+    for name, pts in ((away, away_pts), (home, home_pts)):
+        line = half_point(pts)
+        o, pu, u = line_probabilities(discrete_normal(pts, TEAM_SD, 0, 100), line)
+        print(f"{name + ' ' + format(line, 'g'):<22}{o:>8.1%}{(f'{pu:.1%}' if pu else '-'):>7}{fair_american(o / (o + u)):>7}")
+
+    if alt:
+        print(f"\nAlternate spreads (fair odds)\n{home + ' line':<14}{'Covers':>8}{'Fair':>7}   {away + ' line':<14}{'Covers':>8}{'Fair':>7}")
+        for off in range(-7, 8):
+            L = spread + off
+            c, _, n = line_probabilities(margin, -L)
+            mark = " <" if off == 0 else ""
+            print(f"{home + ' ' + fmt_line(L):<14}{c:>8.1%}{fair_american(c / (c + n)):>7}   "
+                  f"{away + ' ' + fmt_line(-L):<14}{n:>8.1%}{fair_american(n / (c + n)):>7}{mark}")
+        print(f"\nAlternate totals (fair odds)\n{'Line':<8}{'Over':>8}{'Fair':>7}{'Under':>8}{'Fair':>7}")
+        for off in range(-7, 8):
+            L = total_line + off
+            if L <= 0:
+                continue
+            o, _, u = line_probabilities(total, L)
+            print(f"{L:<8g}{o:>8.1%}{fair_american(o / (o + u)):>7}{u:>8.1%}{fair_american(u / (o + u)):>7}{' <' if off == 0 else ''}")
 
     if has_book:
         print(Colour.wrap(f"\nRatings: bad = negative edge · caution = edge under {CAUTION_MIN:.0%}, or over "
@@ -342,7 +593,7 @@ def cmd_vig(args):
 
 def cmd_predict(args):
     print_prediction(args.home, args.away, args.home_pts, args.away_pts, args.spread, args.total,
-                     args.ml, args.spread_odds, args.total_odds, args.margin_sd, args.total_sd)
+                     args.ml, args.spread_odds, args.total_odds, args.margin_sd, args.total_sd, args.alt)
 
 
 def cmd_teams(args):
@@ -406,7 +657,7 @@ def cmd_game(args):
         print(f"Sportsbook lines loaded for {listed['weekday']} {listed['gameday']}.")
     print()
     print_prediction(nickname(home), nickname(away), home_pts, away_pts, spread, total,
-                     ml, spread_odds, total_odds, args.margin_sd, args.total_sd)
+                     ml, spread_odds, total_odds, args.margin_sd, args.total_sd, args.alt)
 
 
 def main():
@@ -430,6 +681,7 @@ def main():
         p.add_argument("--total-odds", nargs=2, metavar=("OVER", "UNDER"), help="bookmaker total odds, e.g. -110 -110")
         p.add_argument("--margin-sd", type=float, default=MARGIN_SD, help=f"margin standard deviation (default {MARGIN_SD:g})")
         p.add_argument("--total-sd", type=float, default=TOTAL_SD, help=f"total standard deviation (default {TOTAL_SD:g})")
+        p.add_argument("--alt", action="store_true", help="also show alternate spreads and totals")
 
     def add_data(p):
         p.add_argument("--data", help="use a local copy of nflverse's games.csv instead of downloading it")
@@ -460,6 +712,15 @@ def main():
     add_lines(p)
     add_data(p)
     p.set_defaults(func=cmd_game)
+
+    p = sub.add_parser("props", help="player props: all of a player's props, or one against a line")
+    p.add_argument("player", help="player name or part of it, e.g. mahomes")
+    p.add_argument("prop", nargs="?", help="prop, e.g. pass_yds, receptions, rush-yards, td")
+    p.add_argument("line", nargs="?", type=float, help="the sportsbook's line, e.g. 249.5 (default: fair line)")
+    p.add_argument("--odds", nargs=2, metavar=("OVER", "UNDER"), help="sportsbook odds for over and under (yes and no for td)")
+    p.add_argument("--players", help="use a local players.json instead of downloading it")
+    add_data(p)
+    p.set_defaults(func=cmd_props)
 
     args = parser.parse_args()
     if args.no_color:

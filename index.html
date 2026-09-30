@@ -4,70 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NFL Odds Calculator</title>
-<meta name="description" content="Pick an NFL matchup to get moneyline, spread and total probabilities from team ratings, and compare them with bookmaker odds.">
-<style>
-  :root {
-    --bg: #faf9f5; --card: #f0eee6; --text: #1f1e1d; --muted: #6b6a66;
-    --border: rgba(0,0,0,.12); --input: #ffffff; --good: #2f7a3a; --bad: #b3261e; --warn: #c79100;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #1f1e1d; --card: #2a2927; --text: #f0eee6; --muted: #a3a19b;
-      --border: rgba(255,255,255,.14); --input: #262624; --good: #5fb86c; --bad: #e0685f; --warn: #e3b341;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #1f1e1d; --card: #2a2927; --text: #f0eee6; --muted: #a3a19b;
-    --border: rgba(255,255,255,.14); --input: #262624; --good: #5fb86c; --bad: #e0685f; --warn: #e3b341;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 800px; margin: 0 auto; padding: 32px 16px 48px; }
-  h1 { font-size: 26px; font-weight: 600; margin: 0 0 4px; }
-  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 10px; }
-  a { color: inherit; }
-  .lede, .small { color: var(--muted); }
-  .lede { margin: 0 0 20px; }
-  .small { font-size: 13px; }
-  fieldset { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 14px; margin: 0 0 12px; min-width: 0; }
-  legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
-  .wide { grid-column: 1 / -1; }
-  label > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  input, select { width: 100%; height: 38px; padding: 0 10px; font: inherit; color: var(--text);
-    background: var(--input); border: 1px solid var(--border); border-radius: 8px; min-width: 0; }
-  input[type=checkbox] { width: 18px; height: 18px; padding: 0; vertical-align: -3px; margin: 0 6px 0 0; }
-  label.check { display: flex; align-items: center; font-size: 14px; color: var(--muted); align-self: end; height: 38px; }
-  input:focus, select:focus { outline: 2px solid #3b7dd8; outline-offset: 1px; }
-  .summary { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 4px 0 0; font-size: 15px; }
-  .summary b { font-weight: 600; }
-  .market { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  .card { background: var(--card); border-radius: 10px; padding: 14px 16px; }
-  .big { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .edge { margin-top: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .card.good { background: color-mix(in srgb, var(--good) 14%, var(--card)); box-shadow: inset 0 0 0 2px var(--good); }
-  .card.caution { background: color-mix(in srgb, var(--warn) 16%, var(--card)); box-shadow: inset 0 0 0 2px var(--warn); }
-  .card.bad { background: color-mix(in srgb, var(--bad) 12%, var(--card)); box-shadow: inset 0 0 0 2px var(--bad); }
-  .badge { float: right; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: #fff; }
-  .good .badge { background: var(--good); } .caution .badge { background: var(--warn); color: #1f1e1d; } .bad .badge { background: var(--bad); }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
-  .err { color: var(--bad); font-size: 14px; min-height: 22px; margin: 0; }
-  #status { margin: 6px 0 0; }
-  .howto { background: var(--card); border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; font-size: 14px; }
-  .howto ol { margin: 6px 0 0; padding-left: 20px; }
-  .howto li { margin: 2px 0; }
-  .req { color: var(--bad); font-weight: 600; }
-  .opt { font-style: normal; font-size: 12px; }
-  input.missing, select.missing { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--input)); }
-  .note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--border); padding: 2px 0 2px 10px; margin: 16px 0 0; }
-  footer { margin-top: 40px; font-size: 13px; color: var(--muted); }
-  footer p { margin: 0 0 8px; }
-</style>
+<meta name="description" content="Pick an NFL matchup to get moneyline, spread, total and team total probabilities from team ratings, and compare them with sportsbook odds.">
+<link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main>
+  <nav><a href="index.html" aria-current="page">Game lines</a><a href="props.html">Player props</a></nav>
   <h1>NFL odds calculator</h1>
   <p class="lede">See how likely each result is for an NFL game, and whether a sportsbook's odds look fair.</p>
 
@@ -114,6 +56,19 @@
     </div>
     <p class="small" style="margin:8px 0 0">The spread is the home team's line: -3.5 means they're favored by 3.5 points. Leave an odds box blank to skip comparing that bet.</p>
   </fieldset>
+
+  <details id="more">
+    <summary>4. Team totals <em class="opt">optional: open to enter your sportsbook's team total lines</em></summary>
+    <div class="grid">
+      <label><span><span id="att-label">Away team total</span> <span class="req">*</span></span><input id="att" type="number" step="0.5" min="0"></label>
+      <label><span>Over odds <em class="opt">optional</em></span><input id="atto" type="text" placeholder="-110"></label>
+      <label><span>Under odds <em class="opt">optional</em></span><input id="attu" type="text" placeholder="-110"></label>
+      <label><span><span id="htt-label">Home team total</span> <span class="req">*</span></span><input id="htt" type="number" step="0.5" min="0"></label>
+      <label><span>Over odds <em class="opt">optional</em></span><input id="htto" type="text" placeholder="-110"></label>
+      <label><span>Under odds <em class="opt">optional</em></span><input id="httu" type="text" placeholder="-110"></label>
+    </div>
+    <p class="small" style="margin:8px 0 0">Team totals start at the model's fair lines. Change them to your sportsbook's.</p>
+  </details>
   <p class="err" id="err" role="alert"></p>
 
   <p class="note">How to read the results: <b>win %</b> is the model's chance for each bet, and <b>fair odds</b> are what that chance is worth with no bookmaker cut. <b>Edge</b> compares the model with the sportsbook's price. In testing, sportsbooks were more accurate than this model, so a very big edge usually means the model is missing news like an injury.</p>
@@ -132,72 +87,29 @@
   <div class="market" id="sp"></div>
   <h2>Total</h2>
   <div class="market" id="tot"></div>
+  <h2>Team totals</h2>
+  <div class="market" id="tt"></div>
   <p class="small" id="vig"></p>
 
+  <h2>Alternate spreads</h2>
+  <p class="small">Fair odds for each line. Compare them with your sportsbook's alternate lines: a price better than fair (a bigger plus number or a smaller minus number) is in your favor.</p>
+  <div class="table-wrap"><table class="lines" id="altsp"></table></div>
+  <h2>Alternate totals</h2>
+  <div class="table-wrap"><table class="lines" id="alttot"></table></div>
+  <h2>Winning margin</h2>
+  <div class="table-wrap"><table class="lines" id="margin"></table></div>
+
   <footer>
-    <p>Team ratings give each team an offense and a defense score, in points above or below an average team, fitted to every score this season plus last season's scores at 20% weight. Home field is worth 1.5 points. The final margin and total are then treated as bell curves around the projection (13 points either side), and games tied after regulation are settled by an overtime field goal.</p>
-    <p>In a backtest over the 2024 and 2025 seasons these ratings were less accurate than bookmaker lines, so an "edge" here usually means the model is missing something, like injuries or a quarterback change. The model also ignores key numbers like 3 and 7.</p>
+    <p>Team ratings give each team an offense and a defense score, in points above or below an average team, fitted to every score this season plus last season's scores at 20% weight. Home field is worth 1.5 points. The final margin and total are then treated as bell curves around the projection (13 points either side), each team's points likewise (9 points either side), and games tied after regulation are settled by an overtime field goal.</p>
+    <p>In a backtest over the 2024 and 2025 seasons these ratings were less accurate than bookmaker lines, so an "edge" here usually means the model is missing something, like injuries or a quarterback change. The model also ignores key numbers like 3 and 7, which matters most for alternate spreads.</p>
     <p>For learning and analysis only. This is not betting advice. Bookmaker vig means most bettors lose money over time. If you bet, do it legally and only with money you can afford to lose. Game data from <a href="https://github.com/nflverse/nfldata">nflverse</a>.</p>
   </footer>
 </main>
 
+<script src="assets/common.js"></script>
 <script>
-const MARGIN_SD = 13, TOTAL_SD = 13, HOME_FIELD = 1.5, PRIOR_WEIGHT = 0.2, SHRINK = 6;
-const DATA_URL = 'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv';
-const TEAMS = {
-  ARI: 'Arizona Cardinals', ATL: 'Atlanta Falcons', BAL: 'Baltimore Ravens', BUF: 'Buffalo Bills',
-  CAR: 'Carolina Panthers', CHI: 'Chicago Bears', CIN: 'Cincinnati Bengals', CLE: 'Cleveland Browns',
-  DAL: 'Dallas Cowboys', DEN: 'Denver Broncos', DET: 'Detroit Lions', GB: 'Green Bay Packers',
-  HOU: 'Houston Texans', IND: 'Indianapolis Colts', JAX: 'Jacksonville Jaguars', KC: 'Kansas City Chiefs',
-  LA: 'Los Angeles Rams', LAC: 'Los Angeles Chargers', LV: 'Las Vegas Raiders', MIA: 'Miami Dolphins',
-  MIN: 'Minnesota Vikings', NE: 'New England Patriots', NO: 'New Orleans Saints', NYG: 'New York Giants',
-  NYJ: 'New York Jets', PHI: 'Philadelphia Eagles', PIT: 'Pittsburgh Steelers', SEA: 'Seattle Seahawks',
-  SF: 'San Francisco 49ers', TB: 'Tampa Bay Buccaneers', TEN: 'Tennessee Titans', WAS: 'Washington Commanders',
-};
-const $ = id => document.getElementById(id);
-const teamName = abbr => TEAMS[abbr] || abbr;
-const shortName = abbr => (TEAMS[abbr] || abbr).split(' ').pop();
-
-let ratings = null;   // { avg, off: {}, def: {}, note }
-let upcoming = [];    // games from the next unplayed week, with bookmaker lines
-
-// ------------------------------------------------------------- odds maths
-
-// Parse American (-110, +150, 150), decimal (1.91) or fractional (10/11) odds.
-function toDecimal(s) {
-  s = String(s).trim();
-  if (!s) return null;
-  let d;
-  if (s.includes('/')) { const [n, m] = s.split('/').map(Number); d = 1 + n / m; }
-  else {
-    const v = Number(s);
-    if (/^[+-]/.test(s) || Math.abs(v) >= 100) {
-      if (Math.abs(v) < 100) return NaN;
-      d = v > 0 ? 1 + v / 100 : 1 + 100 / Math.abs(v);
-    } else d = v;
-  }
-  return isFinite(d) && d > 1 ? d : NaN;
-}
-
-function toAmerican(d) {
-  if (d >= 2 || Math.round(100 / (d - 1)) === 100) return '+' + Math.round((d - 1) * 100);
-  return '-' + Math.round(100 / (d - 1));
-}
-
-function erf(x) {
-  // Abramowitz and Stegun 7.1.26, accurate to about 1e-7.
-  const s = Math.sign(x); x = Math.abs(x);
-  const t = 1 / (1 + 0.3275911 * x);
-  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
-  return s * y;
-}
-const cdf = (x, mean, sd) => 0.5 * (1 + erf((x - mean) / (sd * Math.SQRT2)));
-
-function discreteNormal(mean, sd, lo, hi) {
-  const dist = new Map();
-  for (let k = lo; k <= hi; k++) dist.set(k, cdf(k + 0.5, mean, sd) - cdf(k - 0.5, mean, sd));
-  return dist;
-}
+let ratings = null;   // team ratings, once loaded
+let upcoming = [];    // this week's games with sportsbook lines
 
 // Games level after regulation go to overtime, usually decided by a field goal.
 function marginDist(h, a) {
@@ -209,105 +121,18 @@ function marginDist(h, a) {
   return dist;
 }
 
-// [P(result > line), P(result == line), P(result < line)]
-function lineProbs(dist, line) {
-  let above = 0;
-  for (const [k, p] of dist) if (k > line) above += p;
-  const push = Number.isInteger(line) ? (dist.get(line) || 0) : 0;
-  return [above, push, 1 - above - push];
-}
-
-// ------------------------------------------------------------ team ratings
-
-function parseCsv(text) {
-  const lines = text.trim().split('\n');
-  const split = line => {
-    const out = []; let cur = '', quoted = false;
-    for (const ch of line) {
-      if (ch === '"') quoted = !quoted;
-      else if (ch === ',' && !quoted) { out.push(cur); cur = ''; }
-      else cur += ch;
-    }
-    out.push(cur.replace(/\r$/, ''));
-    return out;
-  };
-  const head = split(lines[0]);
-  return lines.slice(1).map(l => { const v = split(l); return Object.fromEntries(head.map((h, i) => [h, v[i]])); });
-}
-
-const played = g => g.home_score !== 'NA' && g.home_score !== '';
-
-// Points for = league average + own offense - opponent defense + home field share.
-// Solved by repeated averaging; SHRINK adds phantom average games so small samples regress.
-function fitRatings(games, season) {
-  const mine = {}, theirs = {};
-  let total = 0, weight = 0;
-  for (const g of games) {
-    const w = +g.season === season ? 1 : PRIOR_WEIGHT;
-    const h = g.location === 'Neutral' ? 0 : HOME_FIELD / 2;
-    for (const [t, o, pts, hh] of [[g.home_team, g.away_team, +g.home_score, h], [g.away_team, g.home_team, +g.away_score, -h]]) {
-      (mine[t] ||= []).push([o, pts, hh, w]);
-      (theirs[o] ||= []).push([t, pts, hh, w]);
-      total += pts * w; weight += w;
-    }
-  }
-  const avg = total / weight;
-  let off = {}, def = {};
-  for (let i = 0; i < 40; i++) {
-    const nOff = {}, nDef = {};
-    for (const t in mine) {
-      let s = 0, ws = 0;
-      for (const [o, pts, hh, w] of mine[t]) { s += w * (pts - avg - hh + (def[o] || 0)); ws += w; }
-      nOff[t] = s / (ws + SHRINK);
-    }
-    for (const t in theirs) {
-      let s = 0, ws = 0;
-      for (const [a, pts, hh, w] of theirs[t]) { s += w * (avg + (off[a] || 0) + hh - pts); ws += w; }
-      nDef[t] = s / (ws + SHRINK);
-    }
-    off = nOff; def = nDef;
-  }
-  return { avg, off, def };
-}
-
-function project(home, away, neutral) {
-  const h = neutral ? 0 : HOME_FIELD / 2;
-  return [
-    ratings.avg + (ratings.off[home] || 0) - (ratings.def[away] || 0) + h,
-    ratings.avg + (ratings.off[away] || 0) - (ratings.def[home] || 0) - h,
-  ];
-}
-
 async function loadData() {
   try {
-    const res = await fetch(DATA_URL);
-    if (!res.ok) throw new Error(res.status);
-    const games = parseCsv(await res.text());
-    const done = games.filter(played);
-    const season = Math.max(...done.map(g => +g.season));
-    const current = done.filter(g => +g.season === season);
-    ratings = fitRatings(done.filter(g => +g.season >= season - 1), season);
-    const weeks = current.filter(g => g.game_type === 'REG').map(g => +g.week);
-    const lastWeek = weeks.length ? Math.max(...weeks) : 0;
-    ratings.note = `Ratings use ${current.length} games from ${season}` +
-      (lastWeek ? ` (through week ${lastWeek})` : '') + ` plus ${season - 1} results at 20% weight.`;
-
-    const future = games.filter(g => +g.season === season && !played(g));
-    if (future.length) {
-      const next = Math.min(...future.map(g => +g.week));
-      upcoming = future.filter(g => +g.week === next);
-      ratings.note += ` Showing week ${next}'s games.`;
-    }
-    const sel = $('game');
-    upcoming.forEach((g, i) => {
-      const day = new Date(g.gameday + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      sel.add(new Option(`${day} · ${teamName(g.away_team)} @ ${teamName(g.home_team)}${g.location === 'Neutral' ? ' (neutral site)' : ''}`, i));
-    });
-    $('status').textContent = ratings.note;
-    if (upcoming.length) { sel.value = '0'; loadGame(upcoming[0]); }
+    const data = await loadNflData();
+    ratings = data.ratings;
+    upcoming = data.upcoming;
+    upcoming.forEach((g, i) => $('game').add(new Option(gameLabel(g), i)));
+    $('status').textContent = data.note;
+    if (upcoming.length) { $('game').value = '0'; loadGame(upcoming[0]); }
     else useRatings();
   } catch (e) {
     $('status').textContent = "Couldn't load NFL results, so team ratings are unavailable. Enter projected points yourself.";
+    resetTeamTotals();
     calc();
   }
 }
@@ -324,6 +149,7 @@ function fillTeams() {
 
 const val = v => (v === undefined || v === 'NA') ? '' : v;
 const signed = v => { v = val(v); return v && +v > 0 ? '+' + v : v; };
+const half = x => Math.round(x * 2) / 2 || 0;
 
 function loadGame(g) {
   $('hteam').value = g.home_team; $('ateam').value = g.away_team;
@@ -337,6 +163,13 @@ function loadGame(g) {
   useRatings(false);
 }
 
+// Team totals start at the model's fair lines, with no odds.
+function resetTeamTotals() {
+  $('htt').value = half(parseFloat($('hpts').value) || 0);
+  $('att').value = half(parseFloat($('apts').value) || 0);
+  for (const id of ['htto', 'httu', 'atto', 'attu']) $(id).value = '';
+}
+
 // Fill projected points from the ratings. When the matchup isn't a listed game,
 // clear the odds and reset the lines to fair ones so stale prices aren't compared.
 function useRatings(resetLines = true) {
@@ -348,47 +181,22 @@ function useRatings(resetLines = true) {
     for (const id of ['mlh', 'mla', 'sph', 'spa', 'ovr', 'und']) $(id).value = '';
   }
   if (ratings) {
-    const [hp, ap] = project(home, away, $('neutral').checked);
+    const [hp, ap] = ratings.project(home, away, $('neutral').checked);
     $('hpts').value = hp.toFixed(1); $('apts').value = ap.toFixed(1);
     if (resetLines) {
-      $('spread').value = -Math.round((hp - ap) * 2) / 2;
-      $('total').value = Math.round((hp + ap) * 2) / 2;
+      $('spread').value = -half(hp - ap);
+      $('total').value = half(hp + ap);
     }
   }
+  resetTeamTotals();
   calc();
 }
 
 // ----------------------------------------------------------------- output
 
-const pct = p => (p * 100).toFixed(1) + '%';
-const fmtLine = x => x === 0 ? 'PK' : (x > 0 ? '+' : '') + x;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const pts = x => (x >= 0 ? '+' : '') + x.toFixed(1);
-
-// A positive edge below CAUTION_MIN is within the model's error; one above CAUTION_MAX
-// usually means the model is missing news, since sportsbooks are more accurate than it is.
-const CAUTION_MIN = 0.03, CAUTION_MAX = 0.10;
-const RATING_LABELS = { good: 'Good price', caution: 'Caution', bad: 'Bad price' };
-const edgeRating = edge => edge < 0 ? 'bad' : (edge < CAUTION_MIN || edge > CAUTION_MAX) ? 'caution' : 'good';
-
-function card(name, win, push, loss, book) {
-  const fair = toAmerican((win + loss) / win);
-  let extra = '', rating = '';
-  if (book) {
-    const edge = win * (book - 1) - loss;
-    const b = book - 1, kelly = Math.max(0, (b * win - loss) / (b * (win + loss)));
-    rating = edgeRating(edge);
-    extra = `<div class="edge">Book ${toAmerican(book)} · edge ${edge > 0 ? '+' : ''}${(edge * 100).toFixed(1)}%` +
-      (edge > 0 ? ` · Kelly ${(kelly * 100).toFixed(1)}%` : '') + '</div>';
-  }
-  const badge = rating ? `<span class="badge">${RATING_LABELS[rating]}</span>` : '';
-  return `<div class="card ${rating}">${badge}<div class="small">${esc(name)}</div><div class="big">${pct(win)}</div>` +
-    `<div class="small">Fair odds ${fair}${push ? ` · push ${pct(push)}` : ''}</div>${extra}</div>`;
-}
-
-function vigText(label, a, b) {
-  if (!a || !b) return '';
-  return `${label} ${((1 / a + 1 / b - 1) * 100).toFixed(1)}%`;
+function altTable(id, headers, rows, mainIndex) {
+  $(id).innerHTML = `<thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map((r, i) => `<tr${i === mainIndex ? ' class="main"' : ''}>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') + '</tbody>';
 }
 
 function calc() {
@@ -398,43 +206,45 @@ function calc() {
     'hpts-label': `${home} projected points`, 'apts-label': `${away} projected points`,
     'spread-label': `${home} spread`, 'mlh-label': `${home} moneyline`, 'mla-label': `${away} moneyline`,
     'sph-label': `${home} spread odds`, 'spa-label': `${away} spread odds`,
+    'htt-label': `${home} team total`, 'att-label': `${away} team total`,
   };
   for (const id in labels) $(id).textContent = labels[id];
 
   const h = parseFloat($('hpts').value), a = parseFloat($('apts').value);
   const spread = parseFloat($('spread').value), total = parseFloat($('total').value);
-  const ids = ['mlh', 'mla', 'sph', 'spa', 'ovr', 'und'];
+  const htt = parseFloat($('htt').value), att = parseFloat($('att').value);
+  const ids = ['mlh', 'mla', 'sph', 'spa', 'ovr', 'und', 'htto', 'httu', 'atto', 'attu'];
   const odds = Object.fromEntries(ids.map(id => [id, toDecimal($(id).value)]));
 
-  // Highlight every field that's missing or invalid, and name the first problem.
-  const problems = [
+  const ok = validate([
     ['hteam', homeAbbr === awayAbbr, 'Pick two different teams.'],
     ['ateam', homeAbbr === awayAbbr, null],
     ['apts', !(a >= 0 && a <= 70), `Enter ${away} projected points between 0 and 70.`],
     ['hpts', !(h >= 0 && h <= 70), `Enter ${home} projected points between 0 and 70.`],
     ['spread', !isFinite(spread) || Math.abs(spread) > 40, `Enter the ${home} spread, like -3.5 or +7.`],
     ['total', !(total > 0), 'Enter the total points line, like 44.5.'],
+    ['att', !(att >= 0), `Enter the ${away} team total, like 20.5.`],
+    ['htt', !(htt >= 0), `Enter the ${home} team total, like 23.5.`],
     ...ids.map(id => [id, Number.isNaN(odds[id]), 'Odds must be American (-110, +150) or decimal (1.91), or left blank.']),
-  ];
-  for (const [id, bad] of problems) $(id).classList.toggle('missing', bad);
-  const first = problems.find(([, bad, msg]) => bad && msg);
-  $('err').textContent = first ? first[2] : '';
-  if (first) {
-    for (const id of ['summary', 'ratings', 'ml', 'sp', 'tot', 'vig']) $(id).textContent = '';
+  ]);
+  if (!ok) {
+    for (const id of ['summary', 'ratings', 'ml', 'sp', 'tot', 'tt', 'vig', 'altsp', 'alttot', 'margin']) $(id).textContent = '';
+    if (['att', 'htt', 'atto', 'attu', 'htto', 'httu'].some(id => $(id).classList.contains('missing'))) $('more').open = true;
     return;
   }
 
   const margin = marginDist(h, a), totals = discreteNormal(h + a, TOTAL_SD, 0, 150);
-  const fairSpread = Math.round(-(h - a) * 2) / 2, fairTotal = Math.round((h + a) * 2) / 2;
+  const fairSpread = -half(h - a), fairTotal = half(h + a);
   $('summary').innerHTML = `<span>Projected score <b>${esc(away)} ${a.toFixed(1)}, ${esc(home)} ${h.toFixed(1)}</b></span>` +
     `<span>Fair spread <b>${esc(home)} ${fmtLine(fairSpread)}</b></span><span>Fair total <b>${fairTotal}</b></span>`;
   $('ratings').innerHTML = ratings
-    ? [awayAbbr, homeAbbr].map(t => `<span>${esc(shortName(t))}: offense ${pts(ratings.off[t] || 0)}, defense ${pts(ratings.def[t] || 0)} points vs average</span>`).join('')
+    ? [awayAbbr, homeAbbr].map(t => `<span>${esc(shortName(t))}: offense ${signedPts(ratings.off[t] || 0)}, defense ${signedPts(ratings.def[t] || 0)} points vs average</span>`).join('')
     : '';
 
   const [hw, , aw] = lineProbs(margin, 0);
   $('ml').innerHTML = card(`${away} moneyline`, aw, 0, hw, odds.mla) + card(`${home} moneyline`, hw, 0, aw, odds.mlh);
 
+  // Home covers a spread of L when margin + L > 0, i.e. margin > -L.
   const [cover, sPush, noCover] = lineProbs(margin, -spread);
   $('sp').innerHTML = card(`${away} ${fmtLine(-spread)}`, noCover, sPush, cover, odds.spa) +
     card(`${home} ${fmtLine(spread)}`, cover, sPush, noCover, odds.sph);
@@ -442,14 +252,44 @@ function calc() {
   const [over, tPush, under] = lineProbs(totals, total);
   $('tot').innerHTML = card(`Over ${total}`, over, tPush, under, odds.ovr) + card(`Under ${total}`, under, tPush, over, odds.und);
 
-  const vig = [vigText('moneyline', odds.mlh, odds.mla), vigText('spread', odds.sph, odds.spa), vigText('total', odds.ovr, odds.und)].filter(Boolean);
+  const [ao, ap, au] = lineProbs(discreteNormal(a, TEAM_SD, 0, 100), att);
+  const [ho, hp, hu] = lineProbs(discreteNormal(h, TEAM_SD, 0, 100), htt);
+  $('tt').innerHTML = card(`${away} over ${att}`, ao, ap, au, odds.atto) + card(`${away} under ${att}`, au, ap, ao, odds.attu) +
+    card(`${home} over ${htt}`, ho, hp, hu, odds.htto) + card(`${home} under ${htt}`, hu, hp, ho, odds.httu);
+
+  const vig = [vigText('moneyline', odds.mlh, odds.mla), vigText('spread', odds.sph, odds.spa), vigText('total', odds.ovr, odds.und),
+    vigText(`${away} team total`, odds.atto, odds.attu), vigText(`${home} team total`, odds.htto, odds.httu)].filter(Boolean);
   $('vig').textContent = vig.length ? 'Bookmaker vig: ' + vig.join(' · ') : '';
+
+  // Alternate lines: the entered line plus 7 points either way, one point apart.
+  const offsets = Array.from({ length: 15 }, (_, i) => i - 7);
+  const fair = (win, loss) => toAmerican((win + loss) / win);
+  altTable('altsp', [`${home} line`, `${home} covers`, 'Fair odds', `${away} line`, `${away} covers`, 'Fair odds'],
+    offsets.map(o => {
+      const L = spread + o, [c, , n] = lineProbs(margin, -L);
+      return [`${esc(home)} ${fmtLine(L)}`, pct(c), fair(c, n), `${esc(away)} ${fmtLine(-L)}`, pct(n), fair(n, c)];
+    }), 7);
+  altTable('alttot', ['Line', 'Over', 'Fair odds', 'Under', 'Fair odds'],
+    offsets.filter(o => total + o > 0).map(o => {
+      const L = total + o, [ov, , un] = lineProbs(totals, L);
+      return [String(L), pct(ov), fair(ov, un), pct(un), fair(un, ov)];
+    }), offsets.filter(o => total + o > 0).indexOf(0));
+
+  // Winning margin bands, as sportsbooks usually offer them.
+  const bands = [[1, 6], [7, 12], [13, 18], [19, 24], [25, 30], [31, 100]];
+  const bandProb = (lo, hi, sign) => { let p = 0; for (let k = lo; k <= hi; k++) p += margin.get(sign * k) || 0; return p; };
+  altTable('margin', ['Margin', `${home} win by`, 'Fair odds', `${away} win by`, 'Fair odds'],
+    bands.map(([lo, hi]) => {
+      const hp2 = bandProb(lo, hi, 1), ap2 = bandProb(lo, hi, -1);
+      return [hi === 100 ? `${lo}+` : `${lo}–${hi}`, pct(hp2), fairOdds(hp2), pct(ap2), fairOdds(ap2)];
+    }), -1);
 }
 
 fillTeams();
 $('game').addEventListener('change', e => e.target.value === '' ? useRatings() : loadGame(upcoming[+e.target.value]));
 for (const id of ['hteam', 'ateam', 'neutral']) $(id).addEventListener('change', () => useRatings());
-for (const id of ['hpts', 'apts', 'spread', 'total', 'mlh', 'mla', 'sph', 'spa', 'ovr', 'und']) $(id).addEventListener('input', calc);
+for (const id of ['hpts', 'apts', 'spread', 'total', 'mlh', 'mla', 'sph', 'spa', 'ovr', 'und', 'htt', 'att', 'htto', 'httu', 'atto', 'attu']) $(id).addEventListener('input', calc);
+resetTeamTotals();
 calc();
 loadData();
 </script>

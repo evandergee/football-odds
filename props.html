@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFL Player Props</title>
+<meta name="description" content="Check NFL player props like passing yards, receptions and anytime touchdowns against a model built from this season's stats.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <nav><a href="index.html">Game lines</a><a href="props.html" aria-current="page">Player props</a></nav>
+  <h1>NFL player props</h1>
+  <p class="lede">See how likely a player is to go over or under a sportsbook's line, based on his recent games and this week's matchup.</p>
+
+  <div class="howto">
+    <b>How to use it</b>
+    <ol>
+      <li><b>Pick a game</b> from this week's list.</li>
+      <li><b>Pick a player and a prop</b>, like passing yards or receptions.</li>
+      <li><b>Type in the sportsbook's line</b>. It starts at the model's fair line. Add the over and under odds to see if either side is a good price.</li>
+    </ol>
+    <p class="small" style="margin:6px 0 0">Fields marked <span class="req">*</span> need a value. Empty ones are highlighted in red.</p>
+  </div>
+
+  <fieldset>
+    <legend>1. Pick a game</legend>
+    <div class="grid">
+      <label class="wide"><span>This week's games</span><select id="game"><option value="">Custom matchup (choose teams below)</option></select></label>
+      <label><span>Away team <span class="req">*</span></span><select id="ateam"></select></label>
+      <label><span>Home team <span class="req">*</span></span><select id="hteam"></select></label>
+      <label class="check"><input id="neutral" type="checkbox">Neutral site</label>
+    </div>
+    <p class="small" id="status">Loading player stats…</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Pick a player and a prop</legend>
+    <div class="grid">
+      <label><span>Player <span class="req">*</span></span><select id="player"></select></label>
+      <label><span>Prop <span class="req">*</span></span><select id="prop"></select></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Sportsbook line and odds</legend>
+    <div class="grid">
+      <label id="line-wrap"><span><span id="line-label">Line</span> <span class="req">*</span></span><input id="line" type="number" step="0.5" min="0" placeholder="249.5"></label>
+      <label><span><span id="over-label">Over odds</span> <em class="opt">optional</em></span><input id="over" type="text" placeholder="-115"></label>
+      <label><span><span id="under-label">Under odds</span> <em class="opt">optional</em></span><input id="under" type="text" placeholder="-105"></label>
+    </div>
+    <p class="small" id="line-help" style="margin:8px 0 0">The line starts at the model's fair line. Change it to your sportsbook's.</p>
+  </fieldset>
+  <p class="err" id="err" role="alert"></p>
+
+  <div id="warnings"></div>
+
+  <p class="note">How to read the results: <b>win %</b> is the model's chance for each side, and <b>fair odds</b> are what that chance is worth with no sportsbook cut. Player props are harder to predict than game lines: in testing, this model beat a plain season average by only 1–3%, so treat big edges with suspicion and check the news.</p>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--good)"></span>Good price: edge of 3% to 10%</span>
+    <span><span class="dot" style="background:var(--warn)"></span>Caution: edge under 3% (too thin), or over 10% (check the news)</span>
+    <span><span class="dot" style="background:var(--bad)"></span>Bad price: negative edge</span>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <div class="summary small" id="why"></div>
+  <h2 id="result-title">Over / under</h2>
+  <div class="market" id="cards"></div>
+  <p class="small" id="vig"></p>
+
+  <h2>Last 5 games</h2>
+  <div class="table-wrap"><table class="lines" id="recent"></table></div>
+
+  <h2 id="all-title">All props for this player</h2>
+  <p class="small">The model's projection and fair line for every prop. Compare the fair line with your sportsbook's: if theirs is lower, the over looks better; if higher, the under.</p>
+  <div class="table-wrap"><table class="lines" id="all"></table></div>
+
+  <footer>
+    <p>Each player's projection starts from his per-game average, with recent games counting more (each older game counts 0.9 as much as the one after it) and last season's games at 30% weight. Passing props are adjusted for the opponent's pass defense. Touchdown props are scaled by how many points the team ratings project the team to score, compared with its usual average. Rushing and receiving props aren't adjusted for the opponent, because in testing that made them less accurate.</p>
+    <p>Results vary around the projection by amounts measured from the 2024 and 2025 seasons: yards follow a skewed (lognormal) curve, touchdowns a Poisson distribution, and other counts a negative binomial. The model doesn't know about injuries to teammates, depth-chart changes or weather. Sportsbooks usually void a prop if the player doesn't play.</p>
+    <p>For learning and analysis only. This is not betting advice. If you bet, do it legally and only with money you can afford to lose. Player data from <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, refreshed several times a day.</p>
+  </footer>
+</main>
+
+<script src="assets/common.js"></script>
+<script>
+let nfl = null;      // team ratings and this week's games
+let pdata = null;    // data/players.json
+const PRACTICE = ['Did not practice', 'Limited practice'];
+
+// ------------------------------------------------------------ prop maths
+
+function lgamma(x) {
+  // Lanczos approximation, accurate to about 1e-15.
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+  x -= 1;
+  let a = c[0];
+  const t = x + 7.5;
+  for (let i = 1; i < 9; i++) a += c[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+
+// P(X = k) for a count with the given mean and variance/mean ratio (1 = Poisson).
+function negbinPmf(k, mean, dispersion) {
+  if (mean <= 0) return k === 0 ? 1 : 0;
+  if (dispersion <= 1.0001) return Math.exp(-mean + k * Math.log(mean) - lgamma(k + 1));
+  const r = mean / (dispersion - 1), p = r / (r + mean);
+  return Math.exp(lgamma(k + r) - lgamma(r) - lgamma(k + 1) + r * Math.log(p) + k * Math.log(1 - p));
+}
+
+// [P(over), P(push), P(under)]. Yards follow a lognormal curve with coefficient of
+// variation `spread`, counts a negative binomial with variance/mean `spread`, and
+// touchdowns a Poisson. Results are whole numbers, so only whole-number lines push.
+function propProbs(kind, mean, spread, line) {
+  const whole = Number.isInteger(line);
+  if (kind === 'yards') {
+    if (mean <= 0) return [0, 0, 1];
+    const s2 = Math.log(1 + spread * spread), mu = Math.log(mean) - s2 / 2, sd = Math.sqrt(s2);
+    const above = x => x <= 0 ? 1 : 1 - cdf(Math.log(x), mu, sd);
+    const over = above(Math.floor(line) + 0.5);
+    const push = whole ? above(line - 0.5) - over : 0;
+    return [over, push, 1 - over - push];
+  }
+  const dispersion = kind === 'td' ? 1 : spread;
+  let below = 0;
+  for (let k = 0; k < Math.floor(line) + (whole ? 0 : 1); k++) below += negbinPmf(k, mean, dispersion);
+  const push = whole ? negbinPmf(line, mean, dispersion) : 0;
+  return [1 - below - push, push, below];
+}
+
+// The half-point line closest to a 50/50 split.
+function fairLine(kind, mean, spread) {
+  if (kind === 'yards') {
+    const s2 = Math.log(1 + spread * spread);
+    return Math.floor(Math.exp(Math.log(Math.max(mean, 0.01)) - s2 / 2)) + 0.5;
+  }
+  let best = 0.5, gap = 1;
+  for (let n = 0; n < 400; n++) {
+    const g = Math.abs(propProbs(kind, mean, spread, n + 0.5)[0] - 0.5);
+    if (g < gap) { gap = g; best = n + 0.5; } else break;
+  }
+  return best;
+}
+
+// ------------------------------------------------------------- projection
+
+const home = () => $('hteam').value, away = () => $('ateam').value;
+const opponentOf = p => p.team === home() ? away() : home();
+const statInfo = s => pdata.stats[s];
+const spreadFor = (s, pos) => (pdata.spread[s] || {})[pos];
+
+// Returns { mean, why }: the player's weighted average, adjusted for the matchup.
+function project(p, stat) {
+  const base = p.avg[stat];
+  const kind = statInfo(stat).kind;
+  if (kind === 'td') {
+    const ppg = pdata.team_ppg[p.team];
+    if (!nfl || !ppg) return { mean: base, why: '' };
+    const [hp, ap] = nfl.ratings.project(home(), away(), $('neutral').checked);
+    const proj = p.team === home() ? hp : ap;
+    return { mean: base * proj / ppg,
+      why: `${shortName(p.team)} are projected to score ${proj.toFixed(1)} points, against their ${ppg.toFixed(1)} average, so touchdown chances are scaled by ${signedPct(proj / ppg - 1)}.` };
+  }
+  const opp = opponentOf(p);
+  const f = ((pdata.defense[opp] || {})[stat] || {})[p.pos];
+  if (!f) return { mean: base, why: '' };
+  return { mean: base * f, why: `${teamName(opp)} allow ${signedPct(f - 1)} ${statInfo(stat).label.toLowerCase()} to quarterbacks compared with an average defense.` };
+}
+const signedPct = x => (x >= 0 ? '+' : '') + (x * 100).toFixed(0) + '%';
+const fmtNum = (x, kind) => kind === 'yards' ? x.toFixed(1) : x.toFixed(2);
+
+// ------------------------------------------------------------------ inputs
+
+function fillTeams() {
+  for (const id of ['hteam', 'ateam']) for (const abbr of Object.keys(TEAMS)) $(id).add(new Option(TEAMS[abbr], abbr));
+  $('ateam').value = 'BUF'; $('hteam').value = 'KC';
+}
+
+function playerLabel(p) {
+  return `${p.name} · ${p.pos}` + (p.status ? ` · ${p.status}` : '') + (p.games_this_season === 0 ? ' · no games this season' : '');
+}
+
+function fillPlayers() {
+  const sel = $('player'), previous = sel.value;
+  sel.innerHTML = '';
+  for (const t of [away(), home()]) {
+    const group = document.createElement('optgroup');
+    group.label = teamName(t);
+    for (const p of pdata.players.filter(p => p.team === t)) group.appendChild(new Option(playerLabel(p), p.id));
+    sel.appendChild(group);
+  }
+  if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
+  fillProps();
+}
+
+const currentPlayer = () => pdata && pdata.players.find(p => p.id === $('player').value);
+
+// Props in the order each position is usually bet, skipping ones the player
+// barely records (like a receiver's rushing yards).
+const PROP_ORDER = {
+  QB: ['pass_yds', 'pass_td', 'pass_cmp', 'pass_att', 'pass_int', 'rush_yds', 'rush_att', 'anytime_td'],
+  RB: ['rush_yds', 'rush_att', 'rush_rec_yds', 'rec_yds', 'rec', 'anytime_td'],
+  WR: ['rec_yds', 'rec', 'rush_rec_yds', 'rush_yds', 'anytime_td'],
+  TE: ['rec_yds', 'rec', 'rush_rec_yds', 'anytime_td'],
+};
+const MIN_AVERAGE = { rush_yds: 5, rush_att: 1, rec_yds: 5, rec: 0.5 };
+const propsFor = p => PROP_ORDER[p.pos].filter(s => s in p.avg && p.avg[s] >= (MIN_AVERAGE[s] || 0));
+
+function fillProps() {
+  const p = currentPlayer(), sel = $('prop'), previous = sel.value;
+  sel.innerHTML = '';
+  if (p) for (const s of propsFor(p)) sel.add(new Option(statInfo(s).label, s));
+  if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
+  resetLine();
+}
+
+// Start the line at the model's fair line and clear the odds, so a price
+// entered for one prop isn't carried over to another.
+function resetLine() {
+  const p = currentPlayer(), stat = $('prop').value;
+  $('over').value = ''; $('under').value = '';
+  if (p && stat) {
+    const kind = statInfo(stat).kind;
+    $('line').value = stat === 'anytime_td' ? 0.5 : fairLine(kind, project(p, stat).mean, spreadFor(stat, p.pos));
+  }
+  calc();
+}
+
+function loadGame(g) {
+  $('hteam').value = g.home_team; $('ateam').value = g.away_team;
+  $('neutral').checked = g.location === 'Neutral';
+  fillPlayers();
+}
+
+function teamsChanged() {
+  const idx = nfl ? nfl.upcoming.findIndex(g => g.home_team === home() && g.away_team === away()) : -1;
+  $('game').value = idx >= 0 ? String(idx) : '';
+  fillPlayers();
+}
+
+// ----------------------------------------------------------------- output
+
+function showWarnings(p) {
+  const w = [];
+  const name = esc(p.name), team = esc(shortName(p.team));
+  const injury = p.injury ? ` (${esc(p.injury.toLowerCase())})` : '';
+  if (p.status === 'IR') w.push(['bad', `${name} is on injured reserve and won't play. Sportsbooks don't usually offer his props.`]);
+  else if (p.status === 'Out') w.push(['bad', `${name} is listed as Out${injury} and won't play.`]);
+  else if (p.status === 'Doubtful') w.push(['bad', `${name} is listed as Doubtful${injury} and probably won't play.`]);
+  else if (p.status === 'Questionable') w.push(['caution', `${name} is listed as Questionable${injury}. Even if he plays, he may be limited.`]);
+  else if (PRACTICE.includes(p.status)) w.push(['caution', `${name}: ${esc(p.status.toLowerCase())} this week${injury}. His game-day status usually comes out Friday.`]);
+  if (!pdata.injury_teams.includes(p.team)) w.push(['info', `The ${team} haven't posted this week's injury report yet. Teams post them Wednesday to Friday, so check back.`]);
+  if (p.games_this_season < 2) w.push(['caution', `${name} has played ${p.games_this_season === 0 ? 'no' : 'only one'} game${p.games_this_season === 1 ? '' : 's'} this season, so the projection leans on older games.`]);
+  $('warnings').innerHTML = w.map(([cls, text]) => `<div class="warn ${cls}">${text}</div>`).join('');
+}
+
+function table(id, headers, rows) {
+  $(id).innerHTML = `<thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') + '</tbody>';
+}
+
+function clearResults() {
+  for (const id of ['summary', 'why', 'cards', 'vig', 'recent', 'all', 'warnings']) $(id).textContent = '';
+}
+
+function calc() {
+  if (!pdata) return;
+  const p = currentPlayer(), stat = $('prop').value;
+  const isTd = stat === 'anytime_td';
+  $('line-wrap').style.display = isTd ? 'none' : '';
+  $('over-label').textContent = isTd ? 'Yes odds' : 'Over odds';
+  $('under-label').textContent = isTd ? 'No odds' : 'Under odds';
+  $('line-help').textContent = isTd ? 'Anytime touchdown is a yes/no bet: does he score a rushing or receiving touchdown?'
+    : "The line starts at the model's fair line. Change it to your sportsbook's.";
+
+  const line = parseFloat($('line').value);
+  const odds = { over: toDecimal($('over').value), under: toDecimal($('under').value) };
+  const ok = validate([
+    ['hteam', home() === away(), 'Pick two different teams.'],
+    ['ateam', home() === away(), null],
+    ['player', !p, 'Pick a player.'],
+    ['prop', !stat, 'Pick a prop.'],
+    ['line', !isTd && !(line >= 0), 'Enter the sportsbook line, like 249.5.'],
+    ['over', Number.isNaN(odds.over), 'Odds must be American (-110, +150) or decimal (1.91), or left blank.'],
+    ['under', Number.isNaN(odds.under), 'Odds must be American (-110, +150) or decimal (1.91), or left blank.'],
+  ]);
+  if (!ok || !p) { clearResults(); return; }
+
+  const { label, kind } = statInfo(stat);
+  const spread = spreadFor(stat, p.pos);
+  const { mean, why } = project(p, stat);
+  const [over, push, under] = propProbs(kind, mean, spread, isTd ? 0.5 : line);
+
+  showWarnings(p);
+  const opp = opponentOf(p);
+  $('summary').innerHTML = isTd
+    ? `<span>${esc(p.name)} projected <b>${mean.toFixed(2)} touchdowns</b> vs ${esc(shortName(opp))}</span><span>Chance to score <b>${pct(over)}</b></span>`
+    : `<span>${esc(p.name)} projected <b>${fmtNum(mean, kind)} ${esc(label.toLowerCase())}</b> vs ${esc(shortName(opp))}</span>` +
+      `<span>Fair line <b>${fairLine(kind, mean, spread)}</b> <span class="small">(where over and under are each 50%)</span></span>`;
+  $('why').innerHTML = `<span>Weighted average ${fmtNum(p.avg[stat], kind)} over his last ${p.games} games. ${esc(why)}` +
+    (kind === 'yards' ? ' The fair line sits below the projection because a few big games pull the average up.' : '') + '</span>';
+
+  $('result-title').textContent = isTd ? 'Anytime touchdown' : 'Over / under';
+  $('cards').innerHTML = isTd
+    ? card(`${p.name} scores a TD`, over, 0, under, odds.over) + card(`${p.name} doesn't score`, under, 0, over, odds.under)
+    : card(`Over ${line} ${label.toLowerCase()}`, over, push, under, odds.over) + card(`Under ${line} ${label.toLowerCase()}`, under, push, over, odds.under);
+  $('vig').textContent = odds.over && odds.under ? 'Sportsbook vig: ' + vigText('this prop', odds.over, odds.under) : '';
+
+  const values = p.recent.map(g => g[stat]);
+  table('recent', ['Game', 'Opponent', label],
+    p.recent.map(g => [`${g.season === pdata.season ? '' : g.season + ' '}Week ${g.week}`, esc(teamName(g.opp)), String(g[stat])]));
+
+  $('all-title').textContent = `All props for ${p.name}`;
+  table('all', ['Prop', 'Projection', 'Fair line', 'Chance / fair odds'],
+    propsFor(p).map(s => {
+      const info = statInfo(s), m = project(p, s).mean, sp = spreadFor(s, p.pos);
+      if (s === 'anytime_td') {
+        const yes = propProbs('td', m, sp, 0.5)[0];
+        return [info.label, m.toFixed(2), '–', `${pct(yes)} · ${fairOdds(yes)}`];
+      }
+      const fl = fairLine(info.kind, m, sp), [o, , u] = propProbs(info.kind, m, sp, fl);
+      return [info.label, fmtNum(m, info.kind), String(fl), `over ${pct(o)} · ${fairOdds(o / (o + u))}`];
+    }));
+}
+
+// -------------------------------------------------------------------- data
+
+async function loadData() {
+  try {
+    pdata = window.PLAYERS_DATA || await (await fetch('data/players.json')).json();
+  } catch (e) {
+    $('status').textContent = "Couldn't load player stats. Try reloading the page.";
+    return;
+  }
+  let note = `Player stats through week ${pdata.stats_through_week} of ${pdata.season}; ` +
+    `injury report for week ${pdata.injury_week}; updated ${pdata.updated}.`;
+  try {
+    nfl = await loadNflData();
+    nfl.upcoming.forEach((g, i) => $('game').add(new Option(gameLabel(g), i)));
+  } catch (e) {
+    note += " Couldn't load this week's games, so touchdown props aren't adjusted for the matchup.";
+  }
+  $('status').textContent = note;
+  if (nfl && nfl.upcoming.length) { $('game').value = '0'; loadGame(nfl.upcoming[0]); }
+  else fillPlayers();
+}
+
+fillTeams();
+$('game').addEventListener('change', e => e.target.value === '' ? teamsChanged() : loadGame(nfl.upcoming[+e.target.value]));
+for (const id of ['hteam', 'ateam']) $(id).addEventListener('change', teamsChanged);
+$('neutral').addEventListener('change', calc);
+$('player').addEventListener('change', fillProps);
+$('prop').addEventListener('change', resetLine);
+for (const id of ['line', 'over', 'under']) $(id).addEventListener('input', calc);
+loadData();
+</script>
+</body>
+</html>
