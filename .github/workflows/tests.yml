@@ -1,0 +1,29 @@
+name: Tests
+
+# Runs the unit tests on the oldest and newest Python the script supports.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - data/**
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Run tests
+        run: python -m unittest discover tests -v

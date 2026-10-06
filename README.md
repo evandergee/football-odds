@@ -1,5 +1,7 @@
 # NFL odds calculator
 
+[![Tests](https://github.com/evandergee/football-odds/actions/workflows/tests.yml/badge.svg)](https://github.com/evandergee/football-odds/actions/workflows/tests.yml)
+
 A small toolkit for NFL betting maths. It turns team ratings and player stats into probabilities and fair odds for game lines (moneyline, spread, total, team totals, alternate lines, winning margin) and player props (passing, rushing and receiving yards, receptions, completions, touchdowns and more), and rates a sportsbook's price against them.
 
 **Try it in your browser:**
@@ -13,6 +15,7 @@ What's here:
 - **`football_odds.py`**: the same calculator as a command-line script. It needs Python 3.10+ and nothing else.
 - **`scripts/build_player_data.py`**: builds `data/players.json` from nflverse. A GitHub Actions job (`.github/workflows/update-data.yml`) runs it every six hours and commits the result when it changes.
 - **`scripts/backtest_props.py`**: replays a past season week by week to measure the player-prop model.
+- **`tests/`**: unit tests for the script. Run them with `python3 -m unittest discover tests`. GitHub Actions runs them on every push.
 
 ## Using the game lines page
 
