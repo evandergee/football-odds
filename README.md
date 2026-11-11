@@ -2,6 +2,8 @@
 
 [![Tests](https://github.com/evandergee/football-odds/actions/workflows/tests.yml/badge.svg)](https://github.com/evandergee/football-odds/actions/workflows/tests.yml)
 
+> Built by Evan Gilb, with Claude as an AI coding partner.
+
 A small toolkit for NFL betting maths. It turns team ratings and player stats into probabilities and fair odds for game lines (moneyline, spread, total, team totals, alternate lines, winning margin) and player props (passing, rushing and receiving yards, receptions, completions, touchdowns and more), and rates a sportsbook's price against them.
 
 **Try it in your browser:**
